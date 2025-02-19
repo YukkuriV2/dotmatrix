@@ -1,0 +1,5 @@
+../Core/Src/gamelogic.c:60:6:init_game	1
+../Core/Src/gamelogic.c:83:6:check_collision	8
+../Core/Src/gamelogic.c:109:6:move_snake	5
+../Core/Src/gamelogic.c:150:6:update_direction	5
+../Core/Src/gamelogic.c:178:6:display_game	2

@@ -1,0 +1,5 @@
+../Core/Src/gamelogic.c:60:6:init_game	8	static
+../Core/Src/gamelogic.c:83:6:check_collision	32	static
+../Core/Src/gamelogic.c:109:6:move_snake	80	static
+../Core/Src/gamelogic.c:150:6:update_direction	72	static
+../Core/Src/gamelogic.c:178:6:display_game	16	static

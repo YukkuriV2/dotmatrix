@@ -9,6 +9,8 @@
 #include "LED.h"
 #include "spi.h"
 #include "gpio.h"
+#include "usart.h"
+#include <string.h>
 
 
 static uint8_t ledMatrix[8][8] = {0}; // 2D array to store the state of the LED matrix
@@ -40,7 +42,7 @@ void MAX7219_Init(void)
     MAX7219_Send(0x0C, 0x01); // Shutdown-Mode close
     MAX7219_Send(0x0F, 0x00); // Display-Test-Mode close
     MAX7219_Send(0x0B, 0x07); // Scan-Limit for all digits
-    MAX7219_Send(0x0A, 0x01); // Intensity as 10%
+    MAX7219_Send(0x0A, 0x02); // Intensity as 20%
     MAX7219_Send(0x09, 0x00); // Decode-Mode close
     clearMatrix();
 }
@@ -82,6 +84,12 @@ void LED_SetPixel(int x, int y, int value) {
     }
 
     ledMatrix[y][x] = value; // Update the state of the LED matrix
+
+
+    // Debugging: Print the updated LED matrix state
+    char debug_msg[50];
+    sprintf(debug_msg, "LED Matrix Updated: x=%d, y=%d, value=%d\r\n", x, y, value);
+   // HAL_UART_Transmit(&huart2, (uint8_t*)debug_msg, strlen(debug_msg), HAL_MAX_DELAY);
 
     uint8_t row = y + 1; // MAX7219 rows are 1-indexed
     uint8_t currentRowData = 0;

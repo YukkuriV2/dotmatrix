@@ -18,37 +18,31 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "i2c.h"
 #include "spi.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
-#include <stdlib.h>
-#include <time.h>
-#include "LED.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "gamelogic.h"
+#include "joystick.h"
+#include "string.h"
+#include <time.h>
+#include "LED.h"
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-typedef struct {
-    int x;
-    int y;
-} Point;
 
-typedef struct {
-    Point body[8 * 8];
-    int length;
-    Point direction;
-} Snake;
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define MATRIX_WIDTH 8
-#define MATRIX_HEIGHT 8
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -59,18 +53,11 @@ typedef struct {
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-Point fruit;
-Snake snake;
+extern int game_over;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-void init_game(void);
-void move_snake(void);
-void update_direction(void);
-void display_game(void);
-void check_collision(Point new_head);
-
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -78,114 +65,8 @@ void check_collision(Point new_head);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-/**
- * @brief Initializes the game state.
- *
- * This function sets the initial length and position of the snake,
- * sets the initial direction, and places the fruit at a random position.
- */
 
-void init_game() {
-    snake.length = 1;
-    snake.body[0].x = MATRIX_WIDTH / 2;
-    snake.body[0].y = MATRIX_HEIGHT / 2;
-    snake.direction.x = 1;
-    snake.direction.y = 0;
-    fruit.x = rand() % MATRIX_WIDTH;
-    fruit.y = rand() % MATRIX_HEIGHT;
-}
 
-/**
- * @brief Checks for collisions with walls or the snake itself.
- *
- * @param new_head The new head position of the snake.
- *
- * This function checks if the snake's new head position collides with the walls
- * or with its own body. If a collision with the wall is detected, the game is reset.
- * If a collision with the snake's body is detected, the snake's length is reduced.
- */
-
-void check_collision(Point new_head) {
-    // Check for wall collision
-    if (new_head.x < 0 || new_head.x >= MATRIX_WIDTH || new_head.y < 0 || new_head.y >= MATRIX_HEIGHT) {
-        LED_Clear();
-        const char *msg = "Game Over: Wall Collision\r\n";
-        HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
-        init_game();
-        return;
-    }
-
-    // Check for self-collision
-    for (int i = 0; i < snake.length; i++) {
-        if (new_head.x == snake.body[i].x && new_head.y == snake.body[i].y) {
-            snake.length = i; // Reduce length to the point of collision
-            const char *msg = "Snake ate itself\r\n";
-            HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
-            break;
-        }
-    }
-}
-
-/**
- * @brief Moves the snake in the current direction.
- *
- * This function updates the snake's position based on its current direction.
- * It also checks for collisions and handles the snake eating the fruit.
- */
-void move_snake() {
-    Point new_head = {snake.body[0].x + snake.direction.x, snake.body[0].y + snake.direction.y};
-
-    check_collision(new_head);
-
-    if (new_head.x == fruit.x && new_head.y == fruit.y) {
-        snake.length++;
-        fruit.x = rand() % MATRIX_WIDTH;
-        fruit.y = rand() % MATRIX_HEIGHT;
-        const char *msg = "Snake ate food\r\n";
-        HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
-    }
-
-    for (int i = snake.length - 1; i > 0; i--) {
-        snake.body[i] = snake.body[i - 1];
-    }
-    snake.body[0] = new_head;
-}
-/**
- * @brief Updates the snake's direction towards the fruit.
- *
- * This function changes the snake's direction to move towards the fruit.
- * The direction is updated based on the current position of the snake's head
- * and the position of the fruit.
- */
-void update_direction() {
-    if (snake.body[0].x < fruit.x) {
-        snake.direction.x = 1;
-        snake.direction.y = 0;
-    } else if (snake.body[0].x > fruit.x) {
-        snake.direction.x = -1;
-        snake.direction.y = 0;
-    } else if (snake.body[0].y < fruit.y) {
-        snake.direction.x = 0;
-        snake.direction.y = 1;
-    } else if (snake.body[0].y > fruit.y) {
-        snake.direction.x = 0;
-        snake.direction.y = -1;
-    }
-}
-/**
- * @brief Displays the current game state on the LED matrix.
- *
- * This function clears the LED matrix and sets the pixels for the snake's body
- * and the fruit. It then updates the LED matrix to reflect the current game state.
- */
-void display_game() {
-    LED_Clear();
-    for (int i = 0; i < snake.length; i++) {
-        LED_SetPixel(snake.body[i].x, snake.body[i].y, 1);
-    }
-    LED_SetPixel(fruit.x, fruit.y, 1);
-    LED_Update();
-}
 
 /* USER CODE END 0 */
 
@@ -198,6 +79,7 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
     srand(time(NULL));
+    const char *msg = "Starting Snake Game\r\n";
 
   /* USER CODE END 1 */
 
@@ -221,10 +103,13 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_SPI1_Init();
-  MAX7219_Init();
+  MX_I2C1_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
   welcome_animation();
   init_game();
+  PCA9538A_Init();
+  MAX7219_Init();
 
   /* USER CODE END 2 */
 
@@ -232,17 +117,34 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      update_direction();
-      move_snake();
-      display_game();
-      HAL_Delay(500);
+	  // Wait for button press to start the game
+	       while (1) {
+	           uint8_t joystick_input = PCA9538A_ReadInput();
+	           if (joystick_input == JOY_BUTTON) {
+	        	   HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+	        	   HAL_TIM_Base_Start_IT(&htim7);
+	               init_game();
+	               break;
+	           }
+	           HAL_Delay(100); // Polling delay
+	       }
+
+	       // Game loop
+	       while (!game_over) {
+	    	   update_direction();
+	           move_snake();
+	           display_game();
+	           HAL_Delay(500);
+
+	       }
+	       HAL_TIM_Base_Start_IT(&htim7);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
-
 }
+
 /**
   * @brief System Clock Configuration
   * @retval None
